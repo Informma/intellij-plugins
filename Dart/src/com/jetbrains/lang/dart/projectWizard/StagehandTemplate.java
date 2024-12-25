@@ -10,6 +10,7 @@ import com.intellij.openapi.vfs.LocalFileSystem;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.containers.ContainerUtil;
 import com.jetbrains.lang.dart.DartFileType;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import com.jetbrains.lang.dart.util.PubspecYamlUtil;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -30,11 +31,11 @@ class StagehandTemplate extends DartProjectTemplate {
   }
 
   @Override
-  public Collection<VirtualFile> generateProject(@NotNull final String sdkRoot,
+  public Collection<VirtualFile> generateProject(@NotNull final DartSdk sdk,
                                                  @NotNull final Module module,
                                                  @NotNull final VirtualFile baseDir) throws IOException {
     try {
-      myStagehand.generateInto(sdkRoot, baseDir, myTemplate.myId);
+      myStagehand.generateInto(sdk, baseDir, myTemplate.myId);
     }
     catch (ExecutionException e) {
       throw new IOException(e);

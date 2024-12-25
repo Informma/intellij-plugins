@@ -18,6 +18,10 @@
       <excludeFolder url="file://$MODULE_DIR$/testData/highlighting/PathPackageReferenceInspection/other_project/build" />
       <excludeFolder url="file://$MODULE_DIR$/testData/highlighting/PathPackageReferenceInspection/other_project_2/.pub" />
       <excludeFolder url="file://$MODULE_DIR$/testData/highlighting/PathPackageReferenceInspection/other_project_2/build" />
+      <excludeFolder url="file://$MODULE_DIR$/testData/analysisServer/completion/UriCompletionByTab/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/testData/highlighting/PathPackageReferenceInspection/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/testData/highlighting/PathPackageReferenceInspection/other_project/.dart_tool" />
+      <excludeFolder url="file://$MODULE_DIR$/testData/highlighting/PathPackageReferenceInspection/other_project_2/.dart_tool" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

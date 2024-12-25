@@ -73,7 +73,7 @@ class DartToolingDaemonService private constructor(private val project: Project)
     val sdk = DartSdk.getDartSdk(project)?.takeIf { isDartSdkVersionSufficient(it) } ?: return
 
     val commandLine = GeneralCommandLine().withWorkDirectory(sdk.homePath)
-    commandLine.exePath = FileUtil.toSystemDependentName(DartSdkUtil.getDartExePath(sdk))
+    commandLine.exePath = FileUtil.toSystemDependentName(sdk.dartExePath)
     commandLine.charset = StandardCharsets.UTF_8
     commandLine.addParameter("tooling-daemon")
     commandLine.addParameter("--machine")

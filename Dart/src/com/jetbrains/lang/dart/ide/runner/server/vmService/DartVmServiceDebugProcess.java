@@ -9,6 +9,9 @@ import com.intellij.execution.process.ProcessEvent;
 import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.ui.ConsoleViewContentType;
 import com.intellij.execution.ui.ExecutionConsole;
+import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationType;
+import com.intellij.notification.Notifications;
 import com.intellij.openapi.actionSystem.DefaultActionGroup;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ReadAction;
@@ -48,6 +51,7 @@ import com.jetbrains.lang.dart.ide.runner.server.vmService.frame.DartVmServiceEv
 import com.jetbrains.lang.dart.ide.runner.server.vmService.frame.DartVmServiceStackFrame;
 import com.jetbrains.lang.dart.ide.runner.server.vmService.frame.DartVmServiceSuspendContext;
 import com.jetbrains.lang.dart.ide.runner.server.webdev.DartDaemonParserUtil;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import com.jetbrains.lang.dart.util.DartBazelFileUtil;
 import com.jetbrains.lang.dart.util.DartResolveUtil;
 import com.jetbrains.lang.dart.util.DartUrlResolver;
@@ -94,6 +98,7 @@ public class DartVmServiceDebugProcess extends XDebugProcess {
   private final @Nullable VirtualFile myCurrentWorkingDirectory;
   @Nullable String myRemoteProjectRootUri;
   private @Nullable String myBazelWorkspacePath;
+  public final DartSdk myDartSdk;
 
   private final @NotNull OpenDartObservatoryUrlAction myOpenObservatoryAction =
     new OpenDartObservatoryUrlAction(null, () -> myVmConnected && !getSession().isStopped());
@@ -108,13 +113,15 @@ public class DartVmServiceDebugProcess extends XDebugProcess {
                                    @Nullable String dasExecutionContextId,
                                    @NotNull DebugType debugType,
                                    int timeout,
-                                   @Nullable VirtualFile currentWorkingDirectory) {
+                                   @Nullable VirtualFile currentWorkingDirectory,
+                                   @NotNull DartSdk sdk) {
     super(session);
     myExecutionResult = executionResult;
     myDartUrlResolver = dartUrlResolver;
     myDebugType = debugType;
     myTimeout = timeout;
     myCurrentWorkingDirectory = currentWorkingDirectory;
+    myDartSdk = sdk;
 
     myIsolatesInfo = new IsolatesInfo();
 
@@ -349,7 +356,10 @@ public class DartVmServiceDebugProcess extends XDebugProcess {
   }
 
   private void connect(@NotNull String url) throws IOException {
+    Notifications.Bus.notify(new Notification("notification.group.dart.support", "Starting Connection to Debugger " + url, NotificationType.INFORMATION));
+    Notifications.Bus.notify(new Notification("notification.group.dart.support", "Starting Connection to Debugger2 " + url, NotificationType.INFORMATION));
     final VmService vmService = VmService.connect(url);
+    Notifications.Bus.notify(new Notification("notification.group.dart.support", "Should be connected to Debugger " + url, NotificationType.INFORMATION));
     final DartVmServiceListener vmServiceListener =
       new DartVmServiceListener(this, (DartVmServiceBreakpointHandler)myBreakpointHandlers[0]);
 

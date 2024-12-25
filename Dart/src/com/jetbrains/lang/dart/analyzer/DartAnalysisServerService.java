@@ -40,15 +40,12 @@ import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.SearchScope;
 import com.intellij.util.Consumer;
 import com.intellij.util.*;
 import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.io.URLUtil;
 import com.jetbrains.lang.dart.DartBundle;
 import com.jetbrains.lang.dart.DartFileType;
 import com.jetbrains.lang.dart.assists.DartQuickAssistIntention;
@@ -61,7 +58,6 @@ import com.jetbrains.lang.dart.ide.errorTreeView.DartProblemsView;
 import com.jetbrains.lang.dart.ide.template.postfix.DartPostfixTemplateProvider;
 import com.jetbrains.lang.dart.sdk.DartSdk;
 import com.jetbrains.lang.dart.sdk.DartSdkUpdateChecker;
-import com.jetbrains.lang.dart.sdk.DartSdkUtil;
 import com.jetbrains.lang.dart.util.PubspecYamlUtil;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -73,7 +69,6 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.net.URI;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -146,6 +141,7 @@ public final class DartAnalysisServerService implements Disposable {
   @NotNull private String myServerVersion = "";
   @NotNull private String mySdkVersion = "";
   @Nullable private String mySdkHome;
+  @Nullable private DartSdk mySdk;
 
   private final DartServerRootsHandler myRootsHandler;
   private final Map<String, Long> myFilePathWithOverlaidContentToTimestamp = Collections.synchronizedMap(new HashMap<>());
@@ -2153,9 +2149,10 @@ public final class DartAnalysisServerService implements Disposable {
     if (DartPubActionBase.isInProgress()) return; // DartPubActionBase will start the server itself when finished
 
     synchronized (myLock) {
+      mySdk = sdk;
       mySdkHome = sdk.getHomePath();
 
-      final String runtimePath = FileUtil.toSystemDependentName(DartSdkUtil.getDartExePath(sdk));
+      final String runtimePath = FileUtil.toSystemDependentName(sdk.getFullDartExePath());
 
       // If true, then the DAS will be started via `dart language-server`, instead of `dart .../analysis_server.dart.snapshot`
       final boolean useDartLangServerCall = isDartSdkVersionSufficientForDartLangServer(sdk);
@@ -2193,6 +2190,9 @@ public final class DartAnalysisServerService implements Disposable {
       //analysisServerPath =
       //  FileUtil.toSystemDependentName(localDartSdkPath + "pkg/analysis_server/bin/server.dart");
 
+      // Finally convert the analysisServerPath path to the local path to support running in WSL
+      analysisServerPath = sdk.getLocalFileUri(analysisServerPath);
+
       final DebugPrintStream debugStream = str -> {
         str = StringUtil.first(str, MAX_DEBUG_LOG_LINE_LENGTH, true);
         synchronized (myDebugLog) {
@@ -2225,9 +2225,13 @@ public final class DartAnalysisServerService implements Disposable {
         // NOP
       }
 
+      List<String> commandList = sdk.getDartSimpleCommandList();
+      String actualCommand = commandList.remove(0);
+      commandList.addAll(StringUtil.split(vmArgsRaw, " "));
+
       String firstArgument = useDartLangServerCall ? "language-server" : analysisServerPath;
       myServerSocket =
-        new StdioServerSocket(runtimePath, StringUtil.split(vmArgsRaw, " "), firstArgument, StringUtil.split(serverArgsRaw, " "),
+        new StdioServerSocket(actualCommand, commandList, firstArgument, StringUtil.split(serverArgsRaw, " "),
                               debugStream);
       myServerSocket.setClientId(getClientId());
       myServerSocket.setClientVersion(getClientVersion());
@@ -2646,13 +2650,7 @@ public final class DartAnalysisServerService implements Disposable {
    * </ul>
    */
   public String getFileUri(@NotNull VirtualFile file) {
-    if (!isDartSdkVersionSufficientForFileUri(mySdkVersion)) {
-      // prior to Dart SDK 3.4, the protocol required file paths instead of URIs
-      return FileUtil.toSystemDependentName(file.getPath());
-    }
-
-    String fileUri = file.getUserData(DartFileInfoKt.DART_NOT_LOCAL_FILE_URI_KEY);
-    return fileUri != null ? fileUri : getLocalFileUri(file.getPath());
+    return mySdk.getFileUri(file);
   }
 
   /**
@@ -2664,14 +2662,6 @@ public final class DartAnalysisServerService implements Disposable {
    * @see #getFileUri(VirtualFile)
    */
   public String getLocalFileUri(@NotNull String localFilePath) {
-    if (!isDartSdkVersionSufficientForFileUri(mySdkVersion)) {
-      // prior to Dart SDK 3.4, the protocol required file paths instead of URIs
-      return FileUtil.toSystemDependentName(localFilePath);
-    }
-
-    String escapedPath = URLUtil.encodePath(FileUtil.toSystemIndependentName(localFilePath));
-    String url = VirtualFileManager.constructUrl(URLUtil.FILE_PROTOCOL, escapedPath);
-    URI uri = VfsUtil.toUri(url);
-    return uri != null ? uri.toString() : url;
+    return mySdk.getLocalFileUri(localFilePath);
   }
 }

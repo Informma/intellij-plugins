@@ -18,6 +18,7 @@ import com.jetbrains.lang.dart.ide.runner.test.DartTestRunConfiguration;
 import com.jetbrains.lang.dart.ide.runner.test.DartTestRunConfigurationType;
 import com.jetbrains.lang.dart.ide.runner.test.DartTestRunnerParameters;
 import com.jetbrains.lang.dart.projectWizard.Stagehand.StagehandDescriptor;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import org.jetbrains.annotations.Nls;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -32,6 +33,7 @@ public abstract class DartProjectTemplate {
   private static final Stagehand STAGEHAND = new Stagehand();
   private static List<DartProjectTemplate> ourStagehandTemplateCache;
   private static List<DartProjectTemplate> ourDartCreateTemplateCache;
+  private static String lastSdkRoot = "";
 
   private static final Logger LOG = Logger.getInstance(DartProjectTemplate.class.getName());
 
@@ -51,7 +53,7 @@ public abstract class DartProjectTemplate {
     return myDescription;
   }
 
-  public abstract Collection<VirtualFile> generateProject(@NotNull String sdkRoot,
+  public abstract Collection<VirtualFile> generateProject(@NotNull DartSdk sdk,
                                                           @NotNull Module module,
                                                           @NotNull VirtualFile baseDir)
     throws IOException;
@@ -81,6 +83,12 @@ public abstract class DartProjectTemplate {
 
   private static @NotNull List<DartProjectTemplate> getStagehandTemplates(@NotNull String sdkRoot) {
     boolean useDartCreate = Stagehand.isUseDartCreate(sdkRoot);
+    // If the sdk is changed then the templates should be reloaded as they are sdk dependant
+    if(!lastSdkRoot.equals(sdkRoot)){
+      lastSdkRoot = sdkRoot;
+      ourStagehandTemplateCache = null;
+      ourDartCreateTemplateCache = null;
+    }
 
     if (useDartCreate) {
       if (ourDartCreateTemplateCache != null) {

@@ -14,10 +14,13 @@ import com.intellij.execution.process.ProcessHandler;
 import com.intellij.execution.process.ProcessTerminatedListener;
 import com.intellij.execution.runners.ExecutionEnvironment;
 import com.intellij.execution.ui.ConsoleView;
+import com.intellij.ide.browsers.*;
+import com.intellij.ide.browsers.chrome.ChromeSettings;
 import com.intellij.openapi.actionSystem.AnAction;
 import com.intellij.openapi.actionSystem.Separator;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.text.StringUtil;
+import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.Consumer;
 import com.jetbrains.lang.dart.DartBundle;
@@ -28,6 +31,8 @@ import com.jetbrains.lang.dart.pubServer.DartWebdev;
 import com.jetbrains.lang.dart.sdk.DartSdk;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -139,10 +144,66 @@ public class DartWebdevRunningState extends CommandLineState {
     if (myDartWebdevParameters.getWebdevPort() != -1 && StringUtil.isNotEmpty(firstDirName)) {
       commandLine.addParameter(firstDirName + ":" + myDartWebdevParameters.getWebdevPort());
     }
-    if (htmlFilePathRelativeFromWorkingDir != null) {
+    if (htmlFilePathRelativeFromWorkingDir != null/* && !sdk.isWsl()*/) {
       commandLine.addParameter("--launch-app=" + htmlFilePathRelativeFromWorkingDir);
     }
 
+    if(sdk.isWsl()){
+      String url = "http://localhost:" + myDartWebdevParameters.getWebdevPort() + "/" + htmlFilePathRelativeFromWorkingDir;
+      //launchWslBrowser(commandLine, sdk, workingDir, url);
+    }
+
+    sdk.patchCommandLineIfRequired(commandLine);
     return commandLine;
   }
+
+  private static void launchWslBrowser(GeneralCommandLine commandLine, DartSdk sdk, VirtualFile workingDir, String url){
+    VirtualFile userDataDir;
+    try {
+      userDataDir = VfsUtil.createDirectoryIfMissing(workingDir, ".dart_tool/webdev/chrome_user_data");
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    String userDataPath = sdk.getIDEFilePath(userDataDir.getPath());
+    int port = openInAnyChromeFamilyBrowser(url, userDataPath);
+    commandLine.addParameter("--no-launch-in-chrome");
+    commandLine.addParameter("--chrome-debug-port=" + port);
+    //commandLine.getEnvironment().put("CHROME_EXECUTABLE","/mnt/c/Program Files/Google/Chrome/Application/chrome.exe");
+  }
+
+  private static int openInAnyChromeFamilyBrowser(@NotNull final String url, final String userDataDir) {
+    int debugPort = getDebugPort();
+    final List<WebBrowser> chromeBrowsers = WebBrowserManager.getInstance().getBrowsers(
+      browser -> browser.getFamily() == BrowserFamily.CHROME, false);
+
+    String cmdLineOptions = "--disable-background-timer-throttling --disable-extensions --disable-popup-blocking --bwsi --no-first-run --no-default-browser-check --disable-default-apps --disable-translate --start-maximized";
+    cmdLineOptions =  "--remote-debugging-port=" + debugPort + " " + cmdLineOptions;
+
+    WebBrowser browser = chromeBrowsers.get(0);
+    BrowserSpecificSettings settings = browser.getSpecificSettings();
+    if(settings instanceof ChromeSettings){
+      ((ChromeSettings)settings).setUserDataDirectoryPath(userDataDir);
+      ((ChromeSettings)settings).setCommandLineOptions(cmdLineOptions);
+      ((ChromeSettings)settings).setUseCustomProfile(true);
+    }
+
+    BrowserLauncher.getInstance().browse(url, browser);
+    return debugPort;
+  }
+
+  private static int getDebugPort(){
+    int debugPort = -1;
+    ServerSocket socket;
+    try {
+      socket = new ServerSocket(0);
+      debugPort = socket.getLocalPort();
+      socket.close();
+    }
+    catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+    return debugPort;
+  }
+
 }

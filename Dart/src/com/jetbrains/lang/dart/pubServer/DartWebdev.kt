@@ -47,7 +47,7 @@ object DartWebdev {
       DartPubActionBase.setupPubExePath(command, sdk)
       command.addParameters("global", "activate", "webdev")
       command.withEnvironment(DartPubActionBase.PUB_ENV_VAR_NAME, DartPubActionBase.getPubEnvValue() + ".webdev.activate")
-
+      sdk.patchCommandLineIfRequired(command)
       CapturingProcessHandler(command).runProcessWithProgressIndicator(indicator, 60 * 1000, false)
     }
 

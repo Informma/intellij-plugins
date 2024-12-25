@@ -162,11 +162,14 @@ public class DartCommandLineRunningState extends CommandLineState {
       .withParentEnvironmentType(myRunnerParameters.isIncludeParentEnvs() ? ParentEnvironmentType.CONSOLE : ParentEnvironmentType.NONE);
     setupParameters(sdk, commandLine);
 
+    if(sdk.isWsl()) {
+      sdk.patchCommandLineIfRequired(commandLine);
+    }
     return commandLine;
   }
 
   protected void setupExePath(@NotNull GeneralCommandLine commandLine, @NotNull DartSdk sdk) {
-    commandLine.setExePath(DartSdkUtil.getDartExePath(sdk));
+    commandLine.setExePath(sdk.getDartExePath());
   }
 
   private void setupParameters(@NotNull final DartSdk sdk,
@@ -225,7 +228,7 @@ public class DartCommandLineRunningState extends CommandLineState {
       addVmOption(sdk, commandLine, "--no-serve-devtools");
     }
 
-    appendParamsAfterVmOptionsBeforeArgs(commandLine);
+    appendParamsAfterVmOptionsBeforeArgs(commandLine, sdk);
 
     final String arguments = myRunnerParameters.getArguments();
     if (arguments != null) {
@@ -236,7 +239,7 @@ public class DartCommandLineRunningState extends CommandLineState {
     }
   }
 
-  protected void appendParamsAfterVmOptionsBeforeArgs(@NotNull final GeneralCommandLine commandLine) throws ExecutionException {
+  protected void appendParamsAfterVmOptionsBeforeArgs(@NotNull final GeneralCommandLine commandLine, @NotNull DartSdk sdk) throws ExecutionException {
     final VirtualFile dartFile;
     try {
       dartFile = myRunnerParameters.getDartFileOrDirectory();
@@ -245,7 +248,11 @@ public class DartCommandLineRunningState extends CommandLineState {
       throw new ExecutionException(e);
     }
 
-    commandLine.addParameter(FileUtil.toSystemDependentName(dartFile.getPath()));
+    if(sdk.isWsl()){
+      commandLine.addParameter(sdk.getFileUri(dartFile));
+    }else{
+      commandLine.addParameter(FileUtil.toSystemDependentName(dartFile.getPath()));
+    }
   }
 
   protected void addVmOption(@NotNull DartSdk sdk, @NotNull GeneralCommandLine commandLine, @NotNull String option) {

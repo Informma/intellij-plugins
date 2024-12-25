@@ -4,7 +4,8 @@ package com.jetbrains.lang.dart.projectWizard;
 import com.intellij.icons.AllIcons;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.ide.util.projectWizard.SettingsStep;
-import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.progress.impl.CoreProgressManager;
+import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.ValidationInfo;
 import com.intellij.openapi.util.Disposer;
@@ -13,6 +14,8 @@ import com.intellij.openapi.util.text.HtmlBuilder;
 import com.intellij.openapi.util.text.HtmlChunk;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.platform.WebProjectGenerator;
+import com.intellij.platform.ide.progress.ModalTaskOwner;
+import com.intellij.platform.ide.progress.TasksKt;
 import com.intellij.ui.ColorUtil;
 import com.intellij.ui.ComboboxWithBrowseButton;
 import com.intellij.ui.DocumentAdapter;
@@ -24,6 +27,7 @@ import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.util.ui.AsyncProcessIcon;
 import com.jetbrains.lang.dart.DartBundle;
 import com.jetbrains.lang.dart.sdk.DartSdkUtil;
+import kotlinx.coroutines.CoroutineScope;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -33,6 +37,8 @@ import javax.swing.text.JTextComponent;
 import java.awt.*;
 import java.util.List;
 import java.util.stream.IntStream;
+
+import static kotlinx.coroutines.CoroutineScopeKt.MainScope;
 
 public class DartGeneratorPeer implements WebProjectGenerator.GeneratorPeer<DartProjectWizardData> {
   private static final String DART_PROJECT_TEMPLATE = "DART_PROJECT_TEMPLATE";
@@ -51,6 +57,8 @@ public class DartGeneratorPeer implements WebProjectGenerator.GeneratorPeer<Dart
   private JBLabel myErrorLabel; // shown in IntelliJ IDEA only
 
   private boolean myIntellijLiveValidationEnabled = false;
+
+  private String lastLoadedSdkPath = "";
 
   private boolean myDartCreateCalcStarted;
   private boolean myStagehandCalcStarted;
@@ -108,6 +116,11 @@ public class DartGeneratorPeer implements WebProjectGenerator.GeneratorPeer<Dart
 
   private void onSdkPathChanged() {
     String sdkPath = mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim();
+    // If the SDK Path has changed the Template options should be updated
+    // as the options are dependent on the version of the sdk being used
+    if(!sdkPath.equals(lastLoadedSdkPath)){
+      myDartCreateCalcStarted = false;
+    }
     String errorMessage = DartSdkUtil.getErrorMessageIfWrongSdkRootPath(sdkPath);
     if (errorMessage != null) {
       myLoadingTemplatesPanel.setVisible(false);
@@ -160,9 +173,11 @@ public class DartGeneratorPeer implements WebProjectGenerator.GeneratorPeer<Dart
     myLoadingTemplatesPanel.add(asyncProcessIcon, new GridConstraints());  // defaults are ok: row = 0, column = 0
     asyncProcessIcon.resume();
 
-    ApplicationManager.getApplication().executeOnPooledThread(() -> {
+    // TODO: Figure out how to do this the IDEA idiomatic way
+    CoreProgressManager.getInstance().runProcessWithProgressSynchronously(() -> {
       final String sdkPath =
         FileUtil.toSystemIndependentName(mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim());
+      lastLoadedSdkPath = mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim();
       DartProjectTemplate.loadTemplatesAsync(sdkPath, templates -> {
         asyncProcessIcon.suspend();
         myLoadingTemplatesPanel.remove(asyncProcessIcon);
@@ -178,7 +193,7 @@ public class DartGeneratorPeer implements WebProjectGenerator.GeneratorPeer<Dart
         // it's better to call onSdkPathChanged() but not showTemplates() directly as sdk path could have been changed during this long calculation
         onSdkPathChanged();
       });
-    });
+    }, "Get templates", false, null);
   }
 
   private void showTemplates(final List<DartProjectTemplate> templates) {

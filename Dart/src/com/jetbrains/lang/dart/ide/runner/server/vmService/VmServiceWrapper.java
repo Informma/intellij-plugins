@@ -376,7 +376,6 @@ public class VmServiceWrapper implements Disposable {
                                          @NotNull VmServiceConsumers.BreakpointsConsumer consumer) {
     addRequest(() -> {
       int line = position.getLine() + 1;
-
       String resolvedUri = getResolvedUri(position);
       LOG.info("Computed resolvedUri: " + resolvedUri);
       List<String> resolvedUriList = List.of(percentEscapeUri(resolvedUri));
@@ -452,6 +451,10 @@ public class VmServiceWrapper implements Disposable {
     String url = file.getUrl();
     LOG.info("in getResolvedUri. url: " + url);
 
+    //if(myDebugProcess.myDartSdk.isWsl()){
+    //  url = file.getPath();
+    //  return myDebugProcess.myDartSdk.getLocalFileUri(url);
+    //}
     if (SystemInfo.isWindows) {
       // Dart and the VM service use three /'s in file URIs: https://api.dart.dev/stable/2.16.1/dart-core/Uri-class.html.
       return url.replace("file://", "file:///");
@@ -823,6 +826,6 @@ public class VmServiceWrapper implements Disposable {
   private boolean supportsLookupPackageUris() {
     Version version = myVmService.getRuntimeVersion();
     return version.getMajor() > 3 ||
-           version.getMajor() == 3 && version.getMinor() >= 0;
+           version.getMajor() == 3 && version.getMinor() >= 52;
   }
 }

@@ -6,6 +6,7 @@ import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.jetbrains.lang.dart.DartBundle;
 import com.jetbrains.lang.dart.DartLanguage;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import com.jetbrains.lang.dart.util.PubspecYamlUtil;
 import org.jetbrains.annotations.NotNull;
 
@@ -20,7 +21,7 @@ class WebAppTemplate extends DartProjectTemplate {
   }
 
   @Override
-  public Collection<VirtualFile> generateProject(@NotNull final String sdkRoot,
+  public Collection<VirtualFile> generateProject(@NotNull final DartSdk sdk,
                                                  @NotNull final Module module,
                                                  @NotNull final VirtualFile baseDir) throws IOException {
     final String projectTitle = StringUtil.toTitleCase(module.getName());

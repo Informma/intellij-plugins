@@ -28,6 +28,7 @@ import com.jetbrains.lang.dart.ide.runner.server.DartRemoteDebugConfiguration;
 import com.jetbrains.lang.dart.ide.runner.server.vmService.DartVmServiceDebugProcess;
 import com.jetbrains.lang.dart.ide.runner.server.webdev.DartWebdevConfiguration;
 import com.jetbrains.lang.dart.ide.runner.test.DartTestRunConfiguration;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import com.jetbrains.lang.dart.util.DartUrlResolver;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -101,6 +102,7 @@ public final class DartRunner extends GenericProgramRunner {
     final ExecutionResult executionResult;
     final Project project = env.getProject();
     final DartVmServiceDebugProcess.DebugType debugType;
+    final DartSdk dartSdk = DartSdk.getDartSdk(env.getProject());
 
     if (runConfiguration instanceof DartRunConfigurationBase) {
       contextFileOrDir = ((DartRunConfigurationBase)runConfiguration).getRunnerParameters().getDartFileOrDirectory();
@@ -152,13 +154,15 @@ public final class DartRunner extends GenericProgramRunner {
       @NotNull
       public XDebugProcess start(@NotNull final XDebugSession session) throws ExecutionException {
         final DartUrlResolver dartUrlResolver = getDartUrlResolver(project, contextFileOrDir);
+        assert dartSdk != null;
         DartVmServiceDebugProcess debugProcess = new DartVmServiceDebugProcess(session,
                                                                                executionResult,
                                                                                dartUrlResolver,
                                                                                dasExecutionContextId,
                                                                                debugType,
                                                                                getTimeout(),
-                                                                               currentWorkingDirectory);
+                                                                               currentWorkingDirectory,
+                                                                               dartSdk);
         debugProcess.start();
         return debugProcess;
       }

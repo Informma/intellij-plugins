@@ -17,6 +17,9 @@ import com.google.common.collect.Maps;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.intellij.notification.Notification;
+import com.intellij.notification.NotificationType;
+import com.intellij.notification.Notifications;
 import de.roderick.weberknecht.WebSocket;
 import de.roderick.weberknecht.WebSocketEventHandler;
 import de.roderick.weberknecht.WebSocketException;
@@ -50,6 +53,7 @@ abstract class VmServiceBase implements VmServiceConst {
    */
   public static VmService connect(final String url) throws IOException {
     // Validate URL
+    Notifications.Bus.notify(new Notification("notification.group.dart.support", "In VmService connect " + url, NotificationType.INFORMATION));
     URI uri;
     try {
       uri = new URI(url);
@@ -64,7 +68,9 @@ abstract class VmServiceBase implements VmServiceConst {
     // Create web socket and observatory
     WebSocket webSocket;
     try {
+      Notifications.Bus.notify(new Notification("notification.group.dart.support", "Starting new WebSocket(uri) " + url, NotificationType.INFORMATION));
       webSocket = new WebSocket(uri);
+      Notifications.Bus.notify(new Notification("notification.group.dart.support", "Passed new WebSocket(uri) " + url, NotificationType.INFORMATION));
     } catch (WebSocketException e) {
       throw new IOException("Failed to create websocket: " + url, e);
     }
@@ -108,7 +114,9 @@ abstract class VmServiceBase implements VmServiceConst {
     // Establish WebSocket Connection
     //noinspection TryWithIdenticalCatches
     try {
+      Notifications.Bus.notify(new Notification("notification.group.dart.support", "Starting webSocket.connect() " + url, NotificationType.INFORMATION));
       webSocket.connect();
+      Notifications.Bus.notify(new Notification("notification.group.dart.support", "Passed webSocket.connect() " + url, NotificationType.INFORMATION));
     } catch (WebSocketException e) {
       throw new IOException("Failed to connect: " + url, e);
     } catch (ArrayIndexOutOfBoundsException e) {
@@ -515,16 +523,16 @@ abstract class VmServiceBase implements VmServiceConst {
     }
   }
 
-  private static final RemoteServiceCompleter ignoreCallback =
-      new RemoteServiceCompleter() {
-        public void result(JsonObject result) {
-          // ignore
-        }
-
-        public void error(int code, String message, JsonObject data) {
-          // ignore
-        }
-      };
+  //private static final RemoteServiceCompleter ignoreCallback =
+  //    new RemoteServiceCompleter() {
+  //      public void result(JsonObject result) {
+  //        // ignore
+  //      }
+  //
+  //      public void error(int code, String message, JsonObject data) {
+  //        // ignore
+  //      }
+  //    };
 
   void processNotification(JsonObject json) {
     String method;
@@ -564,8 +572,15 @@ abstract class VmServiceBase implements VmServiceConst {
       }
 
       final RemoteServiceRunner runner = remoteServiceRunners.get(method);
+      final RemoteServiceCompleter completer = new RemoteServiceCompleter() {
+        public void result(JsonObject result) {}
+        @Override
+        public void error(int code, String message, JsonObject data) {
+
+        }
+      };
       try {
-        runner.run(params, ignoreCallback);
+        runner.run(params, completer);
       } catch (Exception e) {
         Logging.getLogger().logError("Internal Server Error", e);
       }
