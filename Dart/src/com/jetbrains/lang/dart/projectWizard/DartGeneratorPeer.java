@@ -5,6 +5,7 @@ import com.intellij.icons.AllIcons;
 import com.intellij.ide.util.PropertiesComponent;
 import com.intellij.ide.util.projectWizard.SettingsStep;
 import com.intellij.openapi.application.ApplicationManager;
+import com.intellij.openapi.progress.impl.CoreProgressManager;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.ui.TextFieldWithBrowseButton;
 import com.intellij.openapi.ui.ValidationInfo;
@@ -53,6 +54,8 @@ public class DartGeneratorPeer implements ProjectGeneratorPeer<DartProjectWizard
   private JBLabel myErrorLabel; // shown in IntelliJ IDEA only
 
   private boolean myIntellijLiveValidationEnabled = false;
+
+  private String lastLoadedSdkPath = "";
 
   private boolean myDartCreateCalcStarted;
   private boolean myStagehandCalcStarted;
@@ -110,6 +113,11 @@ public class DartGeneratorPeer implements ProjectGeneratorPeer<DartProjectWizard
 
   private void onSdkPathChanged() {
     String sdkPath = mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim();
+    // If the SDK Path has changed the Template options should be updated
+    // as the options are dependent on the version of the sdk being used
+    if(!sdkPath.equals(lastLoadedSdkPath)){
+      myDartCreateCalcStarted = false;
+    }
     String errorMessage = DartSdkUtil.getErrorMessageIfWrongSdkRootPath(sdkPath);
     if (errorMessage != null) {
       myLoadingTemplatesPanel.setVisible(false);
@@ -162,9 +170,11 @@ public class DartGeneratorPeer implements ProjectGeneratorPeer<DartProjectWizard
     myLoadingTemplatesPanel.add(asyncProcessIcon, new GridConstraints());  // defaults are ok: row = 0, column = 0
     asyncProcessIcon.resume();
 
-    ApplicationManager.getApplication().executeOnPooledThread(() -> {
+    // TODO: Figure out how to do this the IDEA idiomatic way
+    CoreProgressManager.getInstance().runProcessWithProgressSynchronously(() -> {
       final String sdkPath =
         FileUtil.toSystemIndependentName(mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim());
+      lastLoadedSdkPath = mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim();
       DartProjectTemplate.loadTemplatesAsync(sdkPath, templates -> {
         asyncProcessIcon.suspend();
         myLoadingTemplatesPanel.remove(asyncProcessIcon);
@@ -180,7 +190,7 @@ public class DartGeneratorPeer implements ProjectGeneratorPeer<DartProjectWizard
         // it's better to call onSdkPathChanged() but not showTemplates() directly as sdk path could have been changed during this long calculation
         onSdkPathChanged();
       });
-    });
+    }, "Get templates", false, null);
   }
 
   private void showTemplates(final List<DartProjectTemplate> templates) {

@@ -87,10 +87,11 @@ class DartToolingDaemonService private constructor(val project: Project, cs: Cor
     activeLocationChangeEventSupported = DartAnalysisServerService.isDartSdkVersionSufficientForWorkspaceApplyEdits(sdk.version)
 
     val commandLine = GeneralCommandLine().withWorkDirectory(sdk.homePath)
-    commandLine.exePath = FileUtil.toSystemDependentName(DartSdkUtil.getDartExePath(sdk))
+    commandLine.exePath = sdk.dartExePath
     commandLine.charset = StandardCharsets.UTF_8
     commandLine.addParameter("tooling-daemon")
     commandLine.addParameter("--machine")
+    sdk.patchCommandLineIfRequired(commandLine)
 
     logger.info("Starting Dart Tooling Daemon, sdk ${sdk.version}")
     dtdProcessHandler = object : KillableProcessHandler(commandLine) {

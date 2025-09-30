@@ -11,6 +11,7 @@ import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.SystemProperties;
 import com.jetbrains.lang.dart.ide.actions.DartPubActionBase;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import com.jetbrains.lang.dart.sdk.DartSdkUtil;
 import org.jetbrains.annotations.NonNls;
 import org.jetbrains.annotations.NotNull;
@@ -56,27 +57,30 @@ public class Stagehand {
   private static final Logger LOG = Logger.getInstance(Stagehand.class);
   private static final List<StagehandDescriptor> EMPTY = new ArrayList<>();
 
-  private static ProcessOutput runDartCreate(@NotNull String sdkRoot,
+  private static ProcessOutput runDartCreate(@NotNull DartSdk sdk,
                                              @Nullable String workingDirectory,
                                              int timeoutInSeconds,
                                              String... parameters) throws ExecutionException {
     final GeneralCommandLine command = new GeneralCommandLine()
-      .withExePath(DartSdkUtil.getDartExePath(sdkRoot))
+      .withExePath(sdk.getDartExePath())
       .withWorkDirectory(workingDirectory);
 
     command.addParameter("create");
     command.addParameters(parameters);
 
-    return new CapturingProcessHandler(command).runProcess(timeoutInSeconds * 1000, false);
+    return sdk.runCommand(command, timeoutInSeconds * 1000, null, false);
   }
 
-  private static ProcessOutput runPubGlobal(@NotNull String sdkRoot,
+  private static ProcessOutput runPubGlobal(@NotNull DartSdk sdk,
                                             @Nullable String workingDirectory,
                                             int timeoutInSeconds,
                                             @NotNull String pubEnvVarSuffix,
                                             String... pubParameters) throws ExecutionException {
+    if(workingDirectory != null) {
+      workingDirectory = sdk.getLocalFileUri(workingDirectory);
+    }
     final GeneralCommandLine command = new GeneralCommandLine()
-      .withExePath(DartSdkUtil.getPubPath(sdkRoot))
+      .withExePath(sdk.getPubPath())
       .withWorkDirectory(workingDirectory)
       .withEnvironment(DartPubActionBase.PUB_ENV_VAR_NAME, DartPubActionBase.getPubEnvValue() + ".stagehand" + pubEnvVarSuffix);
 
@@ -86,13 +90,13 @@ public class Stagehand {
     return new CapturingProcessHandler(command).runProcess(timeoutInSeconds * 1000, false);
   }
 
-  public void generateInto(final @NotNull String sdkRoot,
+  public void generateInto(final @NotNull DartSdk sdk,
                            final @NotNull VirtualFile projectDirectory,
                            final @NotNull String templateId) throws ExecutionException {
-    ProcessOutput output = isUseDartCreate(sdkRoot)
-                           ? runDartCreate(sdkRoot, projectDirectory.getParent().getPath(), 30, "--force", "--no-pub", "--template",
+    ProcessOutput output = isUseDartCreate(sdk.getHomePath())
+                           ? runDartCreate(sdk, projectDirectory.getParent().getPath(), 30, "--force", "--no-pub", "--template",
                                            templateId, projectDirectory.getName())
-                           : runPubGlobal(sdkRoot, projectDirectory.getPath(), 30, "", "run", "stagehand", "--author",
+                           : runPubGlobal(sdk, projectDirectory.getPath(), 30, "", "run", "stagehand", "--author",
                                           SystemProperties.getUserName(), templateId);
 
     if (output.getExitCode() != 0) {
@@ -102,9 +106,11 @@ public class Stagehand {
 
   public List<StagehandDescriptor> getAvailableTemplates(final @NotNull String sdkRoot) {
     try {
+      DartSdk sdk = DartSdk.forStageHand(sdkRoot);
+
       ProcessOutput output = isUseDartCreate(sdkRoot)
-                             ? runDartCreate(sdkRoot, null, 10, "--list-templates")
-                             : runPubGlobal(sdkRoot, null, 10, "", "run", "stagehand", "--machine");
+                             ? runDartCreate(sdk, null, 10, "--list-templates")
+                             : runPubGlobal(sdk, null, 10, "", "run", "stagehand", "--machine");
 
       int exitCode = output.getExitCode();
 
@@ -144,7 +150,8 @@ public class Stagehand {
     if (isUseDartCreate(sdkRoot)) return;
 
     try {
-      runPubGlobal(sdkRoot, null, 60, ".activate", "activate", "stagehand");
+      DartSdk tempSdk = DartSdk.forStageHand(sdkRoot);
+      runPubGlobal(tempSdk, null, 60, ".activate", "activate", "stagehand");
     }
     catch (ExecutionException e) {
       LOG.info(e);

@@ -17,6 +17,7 @@ import com.intellij.openapi.util.io.OSAgnosticPathUtil;
 import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.openapi.vfs.VirtualFile;
 import com.intellij.util.io.URLUtil;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public final class DotPackagesFileUtil {
 
@@ -96,7 +98,7 @@ public final class DotPackagesFileUtil {
     return null;
   }
 
-  public static @Nullable Map<String, String> getPackagesMapFromPackageConfigJsonFile(final @NotNull VirtualFile packageConfigJsonFile) {
+  public static @Nullable Map<String, String> getPackagesMapFromPackageConfigJsonFile(@NotNull Project project, final @NotNull VirtualFile packageConfigJsonFile) {
     Pair<Long, Map<String, String>> data = packageConfigJsonFile.getUserData(MOD_STAMP_TO_PACKAGES_MAP);
 
     final Long currentTimestamp = packageConfigJsonFile.getModificationCount();
@@ -105,7 +107,7 @@ public final class DotPackagesFileUtil {
     if (cachedTimestamp == null || !cachedTimestamp.equals(currentTimestamp)) {
       data = null;
       packageConfigJsonFile.putUserData(MOD_STAMP_TO_PACKAGES_MAP, null);
-      final Map<String, String> packagesMap = loadPackagesMapFromJson(packageConfigJsonFile);
+      final Map<String, String> packagesMap = loadPackagesMapFromJson(DartSdk.getDartSdk(project), packageConfigJsonFile);
 
       if (packagesMap != null) {
         data = Pair.create(currentTimestamp, packagesMap);
@@ -141,7 +143,7 @@ public final class DotPackagesFileUtil {
    * }
    * ```
    */
-  private static @Nullable Map<String, String> loadPackagesMapFromJson(@NotNull VirtualFile packageConfigJsonFile) {
+  private static @Nullable Map<String, String> loadPackagesMapFromJson(DartSdk dartSdk, @NotNull VirtualFile packageConfigJsonFile) {
     String fileContentsStr = FileUtil.loadFileOrNull(packageConfigJsonFile.getPath());
     if (fileContentsStr == null) {
       return null;
@@ -173,7 +175,7 @@ public final class DotPackagesFileUtil {
           // need to protect '+' chars because URLDecoder.decode replaces '+' with space
           final String encodedUriWithoutPluses = StringUtil.replace(rootUriValue + "/" + packageUriValue, "+", "%2B");
           final String uri = URLUtil.decode(encodedUriWithoutPluses);
-          final String packageUri = getAbsolutePackageRootPath(packageConfigJsonFile.getParent(), uri);
+          final String packageUri = getAbsolutePackageRootPath(dartSdk, packageConfigJsonFile.getParent(), uri);
           if (!packageName.isEmpty() && packageUri != null) {
             result.put(packageName, packageUri);
           }
@@ -184,7 +186,7 @@ public final class DotPackagesFileUtil {
     return null;
   }
 
-  public static @Nullable Map<String, String> getPackagesMap(final @NotNull VirtualFile dotPackagesFile) {
+  public static @Nullable Map<String, String> getPackagesMap(@NotNull Project project, final @NotNull VirtualFile dotPackagesFile) {
     Pair<Long, Map<String, String>> data = dotPackagesFile.getUserData(MOD_STAMP_TO_PACKAGES_MAP);
 
     final Long currentTimestamp = dotPackagesFile.getModificationCount();
@@ -193,7 +195,7 @@ public final class DotPackagesFileUtil {
     if (cachedTimestamp == null || !cachedTimestamp.equals(currentTimestamp)) {
       data = null;
       dotPackagesFile.putUserData(MOD_STAMP_TO_PACKAGES_MAP, null);
-      final Map<String, String> packagesMap = loadPackagesMap(dotPackagesFile);
+      final Map<String, String> packagesMap = loadPackagesMap(Objects.requireNonNull(DartSdk.getDartSdk(project)), dotPackagesFile);
 
       if (packagesMap != null) {
         data = Pair.create(currentTimestamp, packagesMap);
@@ -204,7 +206,7 @@ public final class DotPackagesFileUtil {
     return Pair.getSecond(data);
   }
 
-  private static @Nullable Map<String, String> loadPackagesMap(@NotNull VirtualFile dotPackagesFile) {
+  private static @Nullable Map<String, String> loadPackagesMap(@NotNull DartSdk dartSdk, @NotNull VirtualFile dotPackagesFile) {
     try {
       final List<String> lines;
       if (ApplicationManager.getApplication().isUnitTestMode()) {
@@ -226,7 +228,7 @@ public final class DotPackagesFileUtil {
           // need to protect '+' chars because URLDecoder.decode replaces '+' with space
           final String encodedUriWithoutPluses = StringUtil.replace(encodedUri, "+", "%2B");
           final String uri = URLUtil.decode(encodedUriWithoutPluses);
-          final String packageUri = getAbsolutePackageRootPath(dotPackagesFile.getParent(), uri);
+          final String packageUri = getAbsolutePackageRootPath(dartSdk, dotPackagesFile.getParent(), uri);
           if (!packageName.isEmpty() && packageUri != null) {
             result.put(packageName, packageUri);
           }
@@ -240,9 +242,12 @@ public final class DotPackagesFileUtil {
     }
   }
 
-  private static @Nullable String getAbsolutePackageRootPath(@NotNull VirtualFile baseDir, @NotNull String uri) {
+  private static @Nullable String getAbsolutePackageRootPath(@NotNull DartSdk dartSdk, @NotNull VirtualFile baseDir, @NotNull String uri) {
     if (uri.startsWith("file:/")) {
       final String pathAfterSlashes = StringUtil.trimEnd(StringUtil.trimLeading(StringUtil.trimStart(uri, "file:/"), '/'), "/");
+      if(dartSdk.isWsl()){
+        return dartSdk.getIDEFilePath("/" + pathAfterSlashes);
+      }
       if (SystemInfo.isWindows && !ApplicationManager.getApplication().isUnitTestMode()) {
         if (pathAfterSlashes.length() > 2 && OSAgnosticPathUtil.startsWithWindowsDrive(pathAfterSlashes)) {
           return pathAfterSlashes;
@@ -253,6 +258,9 @@ public final class DotPackagesFileUtil {
       }
     }
     else {
+      if(dartSdk.isWsl()){
+        return dartSdk.getIDEFilePath(FileUtil.toCanonicalPath(baseDir.getPath() + "/" + uri));
+      }
       return FileUtil.toCanonicalPath(baseDir.getPath() + "/" + uri);
     }
 

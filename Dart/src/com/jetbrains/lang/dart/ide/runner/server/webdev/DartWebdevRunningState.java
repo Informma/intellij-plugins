@@ -108,6 +108,7 @@ public class DartWebdevRunningState extends CommandLineState {
       commandLine.addParameter("--launch-app=" + htmlFilePathRelativeFromWorkingDir);
     }
 
+    sdk.patchCommandLineIfRequired(commandLine);
     return commandLine;
   }
 }

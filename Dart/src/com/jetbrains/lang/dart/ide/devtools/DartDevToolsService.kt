@@ -39,10 +39,11 @@ class DartDevToolsService(private val myProject: Project) : Disposable {
 
     val commandLine = GeneralCommandLine().withWorkDirectory(sdk.homePath)
     commandLine.charset = StandardCharsets.UTF_8
-    commandLine.exePath = FileUtil.toSystemDependentName(DartSdkUtil.getDartExePath(sdk))
+    commandLine.exePath = sdk.dartExePath
     commandLine.addParameter("devtools")
     commandLine.addParameter("--machine")
     dtdUri?.let { commandLine.addParameter("--dtd-uri=$it") }
+    sdk.patchCommandLineIfRequired(commandLine)
 
     logger.info("Starting Dart DevTools, sdk ${sdk.version}")
     processHandler = object : KillableProcessHandler(commandLine) {

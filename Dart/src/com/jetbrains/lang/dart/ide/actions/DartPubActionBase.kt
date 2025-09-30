@@ -54,7 +54,6 @@ import com.jetbrains.lang.dart.ide.runner.DartRelativePathsConsoleFilter
 import com.jetbrains.lang.dart.sdk.DartConfigurable
 import com.jetbrains.lang.dart.sdk.DartSdk
 import com.jetbrains.lang.dart.sdk.DartSdkLibUtil
-import com.jetbrains.lang.dart.sdk.DartSdkUtil
 import com.jetbrains.lang.dart.util.PubspecYamlUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -106,7 +105,7 @@ abstract class DartPubActionBase : AnAction(), DumbAware {
     if (sdk == null) return
 
     val useDartPub = StringUtil.compareVersionNumbers(sdk.version, DART_PUB_MIN_SDK_VERSION) >= 0
-    val exeFile = if (useDartPub) File(DartSdkUtil.getDartExePath(sdk)) else File(DartSdkUtil.getPubPath(sdk))
+    val exeFile = if (useDartPub) File(sdk.getFullDartExePath()) else File(sdk.getFullPubPath())
 
     if (!exeFile.isFile) {
       if (allowModalDialogs) {
@@ -125,7 +124,11 @@ abstract class DartPubActionBase : AnAction(), DumbAware {
     val pubParameters = calculatePubParameters(module.project, pubspecYamlFile)
 
     if (pubParameters != null) {
-      val command = GeneralCommandLine().withWorkingDirectory(Path.of(pubspecYamlFile.parent.path))
+      val path1 = sdk.getFileUri(pubspecYamlFile.parent)
+      val path2 = pubspecYamlFile.parent.path
+      val path3 = FileUtil.toSystemDependentName(path2)
+      val path = sdk.getIDEFilePath(path1)
+      val command = GeneralCommandLine().withWorkingDirectory(Path.of(path3))
 
       if (FlutterUtil.isFlutterModule(module)) {
         FlutterUtil.getFlutterRoot(sdk.homePath)?.let { flutterRoot ->
@@ -199,11 +202,21 @@ abstract class DartPubActionBase : AnAction(), DumbAware {
     fun setupPubExePath(commandLine: GeneralCommandLine, dartSdk: DartSdk) {
       val useDartPub = StringUtil.compareVersionNumbers(dartSdk.version, DART_PUB_MIN_SDK_VERSION) >= 0
       if (useDartPub) {
-        commandLine.withExePath(FileUtil.toSystemDependentName(DartSdkUtil.getDartExePath(dartSdk)))
+        if (dartSdk.isWsl) {
+          commandLine.setExePath(dartSdk.getDartExePath())
+        }
+        else {
+          commandLine.setExePath(FileUtil.toSystemDependentName(dartSdk.getDartExePath()))
+        }
         commandLine.addParameter("pub")
       }
       else {
-        commandLine.withExePath(FileUtil.toSystemDependentName(DartSdkUtil.getPubPath(dartSdk)))
+        if (dartSdk.isWsl) {
+          commandLine.setExePath(dartSdk.getPubPath())
+        }
+        else {
+          commandLine.setExePath(FileUtil.toSystemDependentName(dartSdk.getPubPath()))
+        }
       }
     }
 
@@ -235,6 +248,7 @@ abstract class DartPubActionBase : AnAction(), DumbAware {
       return null
     }
 
+    //todo: Fix to run the correct command for WSL
     private fun doPerformPubAction(
       module: Module,
       pubspecYamlFile: VirtualFile,
@@ -246,6 +260,9 @@ abstract class DartPubActionBase : AnAction(), DumbAware {
       try {
         if (ourInProgress.compareAndSet(false, true)) {
           command.withEnvironment(PUB_ENV_VAR_NAME, pubEnvValue)
+
+          val sdk = DartSdk.getDartSdk(module.getProject())
+          sdk?.patchCommandLineIfRequired(command)
 
           val processHandler = OSProcessHandler(command)
 

@@ -126,7 +126,8 @@ public class DartTestRunningState extends DartCommandLineRunningState {
         builder.append(" ").append(testRunnerOptions);
       }
 
-      final String filePath = params.getFilePath();
+      String filePath = params.getFilePath();
+      filePath = sdk.getLocalFileUri(filePath);
       if (filePath != null && filePath.contains(" ")) {
         builder.append(" \"").append(filePath).append('\"');
       }
@@ -160,15 +161,23 @@ public class DartTestRunningState extends DartCommandLineRunningState {
   protected void setupExePath(@NotNull GeneralCommandLine commandLine, @NotNull DartSdk sdk) {
     boolean useDartTest = DartPubActionBase.isUseDartRunTestInsteadOfPubRunTest(sdk);
     if (useDartTest) {
-      commandLine.setExePath(FileUtil.toSystemDependentName(DartSdkUtil.getDartExePath(sdk)));
+      if(sdk.isWsl()){
+        commandLine.setExePath(sdk.getDartExePath());
+      }else{
+        commandLine.setExePath(FileUtil.toSystemDependentName(sdk.getDartExePath()));
+      }
     }
     else {
-      commandLine.setExePath(FileUtil.toSystemDependentName(DartSdkUtil.getPubPath(sdk)));
+      if(sdk.isWsl()) {
+        commandLine.setExePath(sdk.getPubPath());
+      }else{
+        commandLine.setExePath(FileUtil.toSystemDependentName(sdk.getPubPath()));
+      }
     }
   }
 
   @Override
-  protected void appendParamsAfterVmOptionsBeforeArgs(@NotNull GeneralCommandLine commandLine) {
+  protected void appendParamsAfterVmOptionsBeforeArgs(@NotNull GeneralCommandLine commandLine, @NotNull DartSdk sdk) {
     // nothing needed
   }
 

@@ -15,6 +15,7 @@ package com.jetbrains.dart.analysisServer;
 
 import com.intellij.codeInsight.navigation.GotoTargetHandler;
 import com.intellij.openapi.util.io.FileUtil;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.psi.PsiNamedElement;
 import com.intellij.testFramework.fixtures.CodeInsightFixtureTestCase;
 import com.intellij.testFramework.fixtures.CodeInsightTestUtil;
@@ -87,7 +88,15 @@ public class DartGotoImplementationTest extends CodeInsightFixtureTestCase {
                                                                 ? ((PsiNamedElement)psiElement).getName()
                                                                 : psiElement.toString());
 
-    assertContainsElements(actual, "List", "Set", "Runes", "LinkedHashSet", "UnmodifiableListView", "ListBase",
-                           "UnmodifiableInt32x4ListView", "_SplayTreeValueIterable");
+    // UnmodifiableListView was removed in Dart 3.3 see https://github.com/dart-lang/sdk/blob/main/sdk/lib/typed_data/typed_data.dart
+    if(StringUtil.compareVersionNumbers(sdk.getVersion(), "3.3") >= 0){
+      assertContainsElements(actual, "List", "Set", "Runes", "LinkedHashSet", "UnmodifiableListView", "ListBase",
+                             "_SplayTreeValueIterable");
+
+    }else{
+      assertContainsElements(actual, "List", "Set", "Runes", "LinkedHashSet", "UnmodifiableListView", "ListBase",
+                             "UnmodifiableInt32x4ListView", "_SplayTreeValueIterable");
+
+    }
   }
 }
