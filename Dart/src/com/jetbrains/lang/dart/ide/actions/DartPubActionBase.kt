@@ -248,7 +248,6 @@ abstract class DartPubActionBase : AnAction(), DumbAware {
       return null
     }
 
-    //todo: Fix to run the correct command for WSL
     private fun doPerformPubAction(
       module: Module,
       pubspecYamlFile: VirtualFile,

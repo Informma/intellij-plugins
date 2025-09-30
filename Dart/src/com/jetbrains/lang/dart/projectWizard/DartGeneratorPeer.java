@@ -170,8 +170,7 @@ public class DartGeneratorPeer implements ProjectGeneratorPeer<DartProjectWizard
     myLoadingTemplatesPanel.add(asyncProcessIcon, new GridConstraints());  // defaults are ok: row = 0, column = 0
     asyncProcessIcon.resume();
 
-    // TODO: Figure out how to do this the IDEA idiomatic way
-    CoreProgressManager.getInstance().runProcessWithProgressSynchronously(() -> {
+    ApplicationManager.getApplication().executeOnPooledThread(() -> {
       final String sdkPath =
         FileUtil.toSystemIndependentName(mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim());
       lastLoadedSdkPath = mySdkPathComboWithBrowse.getComboBox().getEditor().getItem().toString().trim();
@@ -190,7 +189,7 @@ public class DartGeneratorPeer implements ProjectGeneratorPeer<DartProjectWizard
         // it's better to call onSdkPathChanged() but not showTemplates() directly as sdk path could have been changed during this long calculation
         onSdkPathChanged();
       });
-    }, "Get templates", false, null);
+    });
   }
 
   private void showTemplates(final List<DartProjectTemplate> templates) {
