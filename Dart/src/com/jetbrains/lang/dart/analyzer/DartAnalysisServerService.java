@@ -42,15 +42,12 @@ import com.intellij.openapi.util.Ref;
 import com.intellij.openapi.util.io.FileUtil;
 import com.intellij.openapi.util.registry.Registry;
 import com.intellij.openapi.util.text.StringUtil;
-import com.intellij.openapi.vfs.VfsUtil;
 import com.intellij.openapi.vfs.VirtualFile;
-import com.intellij.openapi.vfs.VirtualFileManager;
 import com.intellij.psi.PsiFile;
 import com.intellij.psi.search.SearchScope;
 import com.intellij.util.*;
 import com.intellij.util.Consumer;
 import com.intellij.util.containers.ContainerUtil;
-import com.intellij.util.io.URLUtil;
 import com.jetbrains.lang.dart.DartBundle;
 import com.jetbrains.lang.dart.DartFileType;
 import com.jetbrains.lang.dart.assists.DartQuickAssistIntention;
@@ -64,7 +61,6 @@ import com.jetbrains.lang.dart.ide.template.postfix.DartPostfixTemplateProvider;
 import com.jetbrains.lang.dart.ide.toolingDaemon.DartToolingDaemonService;
 import com.jetbrains.lang.dart.sdk.DartSdk;
 import com.jetbrains.lang.dart.sdk.DartSdkUpdateChecker;
-import com.jetbrains.lang.dart.sdk.DartSdkUtil;
 import com.jetbrains.lang.dart.util.PubspecYamlUtil;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -2670,7 +2666,11 @@ public final class DartAnalysisServerService implements Disposable {
    * </ul>
    */
   public String getFileUri(@NotNull VirtualFile file) {
-    return mySdk.getFileUri(file);
+    DartSdk sdk = mySdk;
+    if(sdk == null) {
+      sdk = DartSdk.getDartSdk(myProject);
+    }
+    return sdk.getFileUri(file);
   }
 
   /**
@@ -2682,6 +2682,12 @@ public final class DartAnalysisServerService implements Disposable {
    * @see #getFileUri(VirtualFile)
    */
   public String getLocalFileUri(@NotNull String localFilePath) {
-    return mySdk.getLocalFileUri(localFilePath);
+    DartSdk sdk = mySdk;
+    if(sdk == null) {
+      sdk = DartSdk.getDartSdk(myProject);
+    }
+    return sdk.getLocalFileUri(localFilePath);
   }
+
+
 }
