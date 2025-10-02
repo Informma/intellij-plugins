@@ -27,6 +27,7 @@ import com.jetbrains.lang.dart.ide.runner.server.vmService.frame.DartAsyncMarker
 import com.jetbrains.lang.dart.ide.runner.server.vmService.frame.DartVmServiceEvaluator;
 import com.jetbrains.lang.dart.ide.runner.server.vmService.frame.DartVmServiceStackFrame;
 import com.jetbrains.lang.dart.ide.runner.server.vmService.frame.DartVmServiceValue;
+import com.jetbrains.lang.dart.sdk.DartSdk;
 import org.dartlang.vm.service.VmService;
 import org.dartlang.vm.service.consumer.*;
 import org.dartlang.vm.service.element.*;
@@ -54,6 +55,8 @@ public final class VmServiceWrapper implements Disposable {
 
   private @Nullable StepOption myLatestStep;
 
+  private final DartSdk dartSdk;
+
   public VmServiceWrapper(@NotNull DartVmServiceDebugProcess debugProcess,
                           @NotNull VmService vmService,
                           @NotNull DartVmServiceListener vmServiceListener,
@@ -64,6 +67,7 @@ public final class VmServiceWrapper implements Disposable {
     myVmServiceListener = vmServiceListener;
     myIsolatesInfo = isolatesInfo;
     myBreakpointHandler = breakpointHandler;
+    dartSdk = DartSdk.getDartSdk(debugProcess.getSession().getProject());
     myRequestsScheduler = new Alarm(Alarm.ThreadToUse.POOLED_THREAD, this);
   }
 
@@ -449,10 +453,11 @@ public final class VmServiceWrapper implements Disposable {
     assert session != null;
     VirtualFile file = position.getFile().getCanonicalFile();
     assert file != null;
-    String url = file.getUrl();
+    String url = dartSdk.getFileUri(file);
+    //String url = file.getUrl();
     LOG.info("in getResolvedUri. url: " + url);
 
-    if (SystemInfo.isWindows) {
+    if (SystemInfo.isWindows && !dartSdk.isWsl()) {
       // Dart and the VM service use three /'s in file URIs: https://api.dart.dev/stable/2.16.1/dart-core/Uri-class.html.
       return url.replace("file://", "file:///");
     }
